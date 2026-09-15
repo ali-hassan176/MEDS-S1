@@ -87,7 +87,7 @@ module tb_s1_lsu_controller
     .lsu_fault_addr_o      (lsu_fault_addr_o)
   );
 
-  always #5 clk_i = ~clk_i;
+  always #5 clk_i <= ~clk_i;
 
   task automatic check(input string name, input logic [W-1:0] got,
                        input logic [W-1:0] exp);
@@ -205,14 +205,14 @@ module tb_s1_lsu_controller
 
   task automatic expect_request(input logic [W-1:0] expected_addr,
                                 input logic [W-1:0] expected_wdata,
-                                input logic [7:0] expected_be,
+                                input logic [7:0] exp_be,
                                 input logic expected_write,
                                 input logic [2:0] expected_size,
                                 input logic [3:0] expected_id);
     while (!mem_req_valid_o) @(negedge clk_i);
     check("request address", mem_req_o.addr, expected_addr);
     check("request write data", mem_req_o.wdata, expected_wdata);
-    check("request byte enable", mem_req_o.be, expected_be);
+    check("request byte enable", mem_req_o.be, exp_be);
     check1("request write", mem_req_o.we, expected_write);
     check("request size", mem_req_o.size, expected_size);
     check("request id", mem_req_o.id, expected_id);
