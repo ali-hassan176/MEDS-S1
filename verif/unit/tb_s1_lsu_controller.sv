@@ -2,10 +2,12 @@
 // Licensed under the Apache License, Version 2.0, see LICENSE file for details.
 // SPDX-License-Identifier: Apache-2.0
 //
+// =============================================================================
 // tb_s1_lsu_controller : LSU controller and datapath testbench       [WIP -- R-02]
 //
 // The reference model treats a MEM-REQ response as eight little-endian bytes.
 // It does not reproduce the DUT's shifts, masks, or controller states.
+// =============================================================================
 
 module tb_s1_lsu_controller
   import s1_pkg::*;
@@ -191,28 +193,29 @@ module tb_s1_lsu_controller
     lsu_resp_ready_i = 1'b0;
   endtask
 
-  function automatic logic [7:0] expected_be(input logic [2:0] size,
-                                              input logic [2:0] offset);
-    expected_be = '0;
+  function automatic logic [7:0] cal_expected_be(input logic [2:0] size,
+                                                 input logic [2:0] offset);
+    cal_expected_be = '0;
+
     case (size)
-      3'd0: expected_be = 8'h01 << offset;
-      3'd1: expected_be = 8'h03 << offset;
-      3'd2: expected_be = 8'h0f << offset;
-      3'd3: expected_be = 8'hff;
-      default: expected_be = '0;
+        3'd0: cal_expected_be = 8'h01 << offset;
+        3'd1: cal_expected_be = 8'h03 << offset;
+        3'd2: cal_expected_be = 8'h0f << offset;
+        3'd3: cal_expected_be = 8'hff;
+        default: cal_expected_be = '0;
     endcase
-  endfunction
+endfunction
 
   task automatic expect_request(input logic [W-1:0] expected_addr,
                                 input logic [W-1:0] expected_wdata,
-                                input logic [7:0] exp_be,
+                                input logic [7:0] expected_be,
                                 input logic expected_write,
                                 input logic [2:0] expected_size,
                                 input logic [3:0] expected_id);
     while (!mem_req_valid_o) @(negedge clk_i);
     check("request address", mem_req_o.addr, expected_addr);
     check("request write data", mem_req_o.wdata, expected_wdata);
-    check("request byte enable", mem_req_o.be, exp_be);
+    check("request byte enable", mem_req_o.be, expected_be);
     check1("request write", mem_req_o.we, expected_write);
     check("request size", mem_req_o.size, expected_size);
     check("request id", mem_req_o.id, expected_id);
@@ -229,7 +232,7 @@ module tb_s1_lsu_controller
                             input logic [W-1:0] response_data,
                             input logic [W-1:0] expected_data);
     issue(addr, '0, size, 1'b0, is_unsigned, 4'h1);
-    expect_request(addr, '0, expected_be(size, addr[2:0]), 1'b0, size, 4'h1);
+    expect_request(addr, '0, cal_expected_be(size, addr[2:0]), 1'b0, size, 4'h1);
     complete_response(response_data, 1'b0, '0, 4'h1, expected_data, 1'b0, 6'd0);
     $display("  PASS %s", name);
   endtask
@@ -316,7 +319,7 @@ module tb_s1_lsu_controller
                       64'h0000000000000042, 1'b0, 6'd0);
 
     issue(64'd0, 64'd0, 3'd0, 1'b0, 1'b0, 4'h9);
-    expect_request(64'd0, '0, expected_be(3'd0, 3'd0), 1'b0, 3'd0, 4'h9);
+    expect_request(64'd0, '0, cal_expected_be(3'd0, 3'd0), 1'b0, 3'd0, 4'h9);
     mem_rsp_i.rdata = 64'd0;
     mem_rsp_i.err = 1'b1;
     mem_rsp_i.errcode = 2'd2;

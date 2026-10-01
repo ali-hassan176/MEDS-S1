@@ -18,7 +18,7 @@ The combinational LSU datapath converts a decoded scalar memory operation into b
 
 | Signal | Dir | Width | Meaning | Contract |
 |---|---|---|---|---|
-| `addr_i` | in | `XLEN` | byte address | low three bits select lanes in the XLEN memory beat |
+| `addr_offset_i` | in | `3` | byte offset | selects lanes in the XLEN memory beat; the controller retains the full address |
 | `store_data_i` | in | `XLEN` | source store value | only the selected transfer width is used |
 | `size_i` | in | 3 | log2 transfer size | `0` byte, `1` halfword, `2` word, `3` doubleword |
 | `load_unsigned_i` | in | 1 | load extension mode | zero-extend when high; sign-extend when low |

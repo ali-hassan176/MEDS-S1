@@ -12,7 +12,7 @@
 
 ## Purpose
 
-The scalar LSU controller accepts one decoded load or store, latches its request, checks size/alignment and externally supplied PMA/PMP decisions, performs one MEM-REQ transaction, and holds the result until the core accepts it. It is deliberately separated from the datapath so later PMA, PMP, store-buffer, atomic, and coprocessor-memory logic can be integrated without rewriting the request/response controller.
+The scalar LSU controller accepts one decoded load or store, latches its request, checks size/alignment and the integrated PMP plus externally supplied PMA decision, performs one MEM-REQ transaction, and holds the result until the core accepts it. PMP CSR access is forwarded through this block while the PMP decision is made during `ST_CHECK`.
 
 ## Interface contract
 
@@ -28,9 +28,16 @@ The scalar LSU controller accepts one decoded load or store, latches its request
 | `lsu_unsigned_i` | in | 1 | load extension selector | applies to loads; ignored for stores |
 | `lsu_mode_i` | in | 2 | privilege mode | forwarded to MEM-REQ and PMA/PMP checks |
 | `lsu_id_i` | in | 4 | transaction ID | returned by the matching MEM-REQ response |
+| `pmp_csr_*` | in | varies | PMP CSR request | M-mode CSR transaction forwarded to the integrated PMP |
+| `pmp_csr_rdata_o` / `pmp_csr_illegal_o` | out | varies | PMP CSR response | read data and illegal-access result |
+| `pmp_access_fault_o` | out | 1 | PMP decision | high when the current check request is denied |
+| `pmp_fault_addr_o` | out | `PLEN` | PMP fault address | physical address reported by PMP |
+| `pmp_match_vector_o` | out | `PMP_N` | PMP diagnostics | entries overlapping any byte of the current request |
+| `pmp_selected_valid_o` / `pmp_selected_index_o` | out | varies | selected entry | lowest-priority-number matching entry |
+| `pmp_selected_all_bytes_o` | out | 1 | complete coverage | selected entry contains the complete operation |
 | `check_*` | out | varies | PMA/PMP request | presents the latched operation during CHECK |
-| `pmp_allow_i` / `pma_allow_i` | in | 1 | access decisions | high permits the request; low produces a fault without a bus request |
-| `pmp_fault_code_i` / `pma_fault_code_i` | in | 6 | access fault code | nonzero code is returned when its check denies the operation |
+| `pma_allow_i` | in | 1 | PMA decision | high permits the request; low produces a fault without a bus request |
+| `pma_fault_code_i` | in | 6 | PMA access fault code | nonzero code is returned when PMA denies the operation |
 | `mem_req_valid_o` / `mem_req_ready_i` | out/in | 1 | MEM-REQ request handshake | request payload remains stable until accepted |
 | `mem_req_o` | out | `mem_req_t` | memory request | contains address, write, byte enables, lane-aligned data, size, mode, and ID |
 | `mem_rsp_valid_i` / `mem_rsp_ready_o` | in/out | 1 | MEM-REQ response handshake | only a response with the latched ID is accepted |
@@ -56,7 +63,7 @@ IDLE -> CHECK -> ISSUE -> WAIT_RSP -> RESP -> IDLE
               \-> RESP on invalid size, misalignment, PMA denial, or PMP denial
 ```
 
-`CHECK` presents the latched request to the PMA/PMP boundary. Illegal accesses do not assert `mem_req_valid_o`. `ISSUE` holds the MEM-REQ payload stable until `mem_req_ready_i`. `WAIT_RSP` accepts only a valid response whose ID matches the request. `RESP` holds the final data or fault until `lsu_resp_ready_i`.
+`CHECK` presents the latched request to the integrated PMP and the external PMA boundary. Illegal accesses do not assert `mem_req_valid_o`. `ISSUE` holds the MEM-REQ payload stable until `mem_req_ready_i`. `WAIT_RSP` accepts only a valid response whose ID matches the request. `RESP` holds the final data or fault until `lsu_resp_ready_i`.
 
 ## Exceptions and errors
 
@@ -64,7 +71,7 @@ IDLE -> CHECK -> ISSUE -> WAIT_RSP -> RESP -> IDLE
 - Load access fault: code 5.
 - Store misaligned: code 6.
 - Store access fault: code 7.
-- PMA/PMP supplied nonzero fault codes take precedence over the generic access-fault code.
+- PMP or PMA supplied nonzero fault codes take precedence over the generic access-fault code.
 - A MEM-REQ bus error becomes the corresponding load/store access fault.
 
 ## Verification status
@@ -76,14 +83,14 @@ IDLE -> CHECK -> ISSUE -> WAIT_RSP -> RESP -> IDLE
 | Co-simulation | not applicable yet | |
 | Formal | not yet | |
 
-The testbench covers all load widths, signed/unsigned extension, dirty store values, byte enables, SD, alignment faults, invalid sizes, request backpressure, response IDs, bus errors, and active PMA/PMP denial with no memory request.
+The testbench covers all load widths, signed/unsigned extension, dirty store values, byte enables, SD, alignment faults, invalid sizes, request backpressure, response IDs, bus errors, and active PMA denial plus CSR-programmed PMP denial with no memory request.
 
 ## Known limitations
 
 - One outstanding memory operation at a time.
 - No store buffer or load forwarding yet.
 - No AMO, LR/SC, or reservation-set behavior yet.
-- PMA and PMP are external decision inputs; their implementations are future R-02 slices.
+- PMA remains an external decision input; PMP is integrated locally, while instruction-fetch PMP integration belongs to the future fetch path.
 - No cache or address translation is implemented here.
 
 ## Open questions

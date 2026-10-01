@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0, see LICENSE file for details.
 // SPDX-License-Identifier: Apache-2.0
 //
+// =============================================================================
 // s1_lsu_controller : scalar LSU request/response controller       [WIP -- R-02]
 //
 // Accepts one decoded scalar memory operation, checks its basic legality,
@@ -9,6 +10,7 @@
 // it. PMA and PMP are explicit decision ports; they are supplied externally so
 // their later implementations do not change this controller's datapath.
 // Reference: MEDS-S1 specification sections 11, 14 and INTERFACES.md section 2.
+// =============================================================================
 
 module s1_lsu_controller
   import s1_pkg::*;

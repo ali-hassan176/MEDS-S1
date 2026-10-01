@@ -2,18 +2,22 @@
 // Licensed under the Apache License, Version 2.0, see LICENSE file for details.
 // SPDX-License-Identifier: Apache-2.0
 //
+// =============================================================================
 // s1_lsu_datapath : scalar load/store byte-lane datapath              [WIP -- R-02]
 //
 // Purely combinational logic for transfer sizing, natural-alignment checking,
 // store byte enables, store lane placement, and load extension.
 // Reference: MEDS-S1 specification sections 7.3, 11 and 14.
+// =============================================================================
 
 module s1_lsu_datapath #(
   parameter int unsigned XLEN = 64
 ) (
   // Only addr_i[2:0] selects byte lanes; upper address bits are consumed by
   // the PMA/PMP boundary and the memory request path.
+  /* verilator lint_off UNUSED */
   input  logic [XLEN-1:0] addr_i,
+  /* verilator lint_on UNUSED */
   input  logic [XLEN-1:0] store_data_i,
   input  logic [2:0]      size_i,
   input  logic             load_unsigned_i,
