@@ -32,9 +32,7 @@ module tb_s1_lsu_controller
   logic [2:0] check_size_o;
   logic check_write_o;
   priv_lvl_e check_mode_o;
-  logic pmp_allow_i;
   logic pma_allow_i;
-  logic [5:0] pmp_fault_code_i;
   logic [5:0] pma_fault_code_i;
 
   logic mem_req_valid_o;
@@ -71,9 +69,7 @@ module tb_s1_lsu_controller
     .check_size_o          (check_size_o),
     .check_write_o         (check_write_o),
     .check_mode_o          (check_mode_o),
-    .pmp_allow_i           (pmp_allow_i),
     .pma_allow_i           (pma_allow_i),
-    .pmp_fault_code_i      (pmp_fault_code_i),
     .pma_fault_code_i      (pma_fault_code_i),
     .mem_req_valid_o       (mem_req_valid_o),
     .mem_req_ready_i       (mem_req_ready_i),
@@ -118,9 +114,7 @@ module tb_s1_lsu_controller
     lsu_unsigned_i = 1'b0;
     lsu_mode_i = PRIV_M;
     lsu_id_i = '0;
-    pmp_allow_i = 1'b1;
     pma_allow_i = 1'b1;
-    pmp_fault_code_i = '0;
     pma_fault_code_i = '0;
     mem_req_ready_i = 1'b0;
     mem_rsp_valid_i = 1'b0;
@@ -280,18 +274,7 @@ endfunction
     complete_fault(64'd4, 6'd4);
 
     issue(64'd0, 64'd0, 3'd4, 1'b0, 1'b0, 4'h7);
-    complete_fault(64'd0, 6'd4);
-
-    pmp_allow_i = 1'b0;
-    pmp_fault_code_i = 6'd5;
-    issue(64'd0, 64'd0, 3'd0, 1'b0, 1'b0, 4'hc);
-    repeat (2) begin
-      @(posedge clk_i);
-      check1("PMP deny emits no request", mem_req_valid_o, 1'b0);
-    end
-    complete_fault(64'd0, 6'd5);
-    pmp_allow_i = 1'b1;
-    pmp_fault_code_i = '0;
+    complete_fault(64'd0, 6'd2);
 
     pma_allow_i = 1'b0;
     pma_fault_code_i = 6'd7;
@@ -318,6 +301,30 @@ endfunction
     complete_response(64'h0000000000000042, 1'b0, '0, 4'h8,
                       64'h0000000000000042, 1'b0, 6'd0);
 
+    issue(64'd0, 64'd0, 3'd0, 1'b0, 1'b0, 4'ha);
+    expect_request(64'd0, '0, cal_expected_be(3'd0, 3'd0), 1'b0, 3'd0, 4'ha);
+    mem_rsp_i.rdata = 64'hdead_beef;
+    mem_rsp_i.err = 1'b0;
+    mem_rsp_i.errcode = '0;
+    mem_rsp_i.id = 4'hb;
+    mem_rsp_valid_i = 1'b1;
+    @(negedge clk_i);
+    check1("mismatched response not ready", mem_rsp_ready_o, 1'b0);
+    @(posedge clk_i);
+    check1("mismatched response remains pending", lsu_resp_valid_o, 1'b0);
+    mem_rsp_i.id = 4'ha;
+    @(posedge clk_i);
+    check1("matching response completes", lsu_resp_valid_o, 1'b1);
+    @(negedge clk_i);
+    mem_rsp_valid_i = 1'b0;
+    while (!lsu_resp_valid_o) @(negedge clk_i);
+    check1("matching response has no fault", lsu_fault_o, 1'b0);
+    check("matching response data", lsu_rdata_o, 64'hffffffffffffffef);
+    lsu_resp_ready_i = 1'b1;
+    @(posedge clk_i);
+    @(negedge clk_i);
+    lsu_resp_ready_i = 1'b0;
+
     issue(64'd0, 64'd0, 3'd0, 1'b0, 1'b0, 4'h9);
     expect_request(64'd0, '0, cal_expected_be(3'd0, 3'd0), 1'b0, 3'd0, 4'h9);
     mem_rsp_i.rdata = 64'd0;
@@ -330,7 +337,7 @@ endfunction
     mem_rsp_valid_i = 1'b0;
     while (!lsu_resp_valid_o) @(negedge clk_i);
     check1("bus error fault", lsu_fault_o, 1'b1);
-    check("bus error code", lsu_fault_code_o, 64'd2);
+    check("bus error code", lsu_fault_code_o, 64'd5);
     lsu_resp_ready_i = 1'b1;
     @(posedge clk_i);
 

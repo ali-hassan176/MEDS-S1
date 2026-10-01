@@ -10,14 +10,11 @@
 // Reference: MEDS-S1 specification sections 7.3, 11 and 14.
 // =============================================================================
 
-module s1_lsu_datapath #(
-  parameter int unsigned XLEN = 64
-) (
-  // Only addr_i[2:0] selects byte lanes; upper address bits are consumed by
-  // the PMA/PMP boundary and the memory request path.
-  /* verilator lint_off UNUSED */
-  input  logic [XLEN-1:0] addr_i,
-  /* verilator lint_on UNUSED */
+module s1_lsu_datapath
+  import s1_pkg::*;
+(
+  // Only the low address bits select byte lanes.
+  input  logic [2:0]      addr_i,
   input  logic [XLEN-1:0] store_data_i,
   input  logic [2:0]      size_i,
   input  logic             load_unsigned_i,
