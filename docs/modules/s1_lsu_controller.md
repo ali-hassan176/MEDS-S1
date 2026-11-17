@@ -12,7 +12,7 @@
 
 ## Purpose
 
-The scalar LSU controller accepts one decoded load or store, latches its request, checks size/alignment and the externally supplied PMA decision, performs one MEM-REQ transaction, and holds the result until the core accepts it. PMP is not integrated in this LSU slice; its default permissive behavior does not block LSU requests.
+The scalar LSU controller accepts one decoded load or store, latches its request, checks size/alignment and the externally supplied PMA decision in the issue cycle, performs one MEM-REQ transaction, and holds the result until the core accepts it. PMP is not integrated in this LSU slice; its default permissive behavior does not block LSU requests.
 
 ## Interface contract
 
@@ -28,7 +28,7 @@ The scalar LSU controller accepts one decoded load or store, latches its request
 | `lsu_unsigned_i` | in | 1 | load extension selector | applies to loads; ignored for stores |
 | `lsu_mode_i` | in | 2 | privilege mode | forwarded to MEM-REQ |
 | `lsu_id_i` | in | `MXIF_ID_W` | transaction ID | returned by the matching MEM-REQ response |
-| `check_*` | out | varies | PMA request | presents the latched operation during CHECK |
+| `check_*` | out | varies | PMA request | presents the latched operation during ISSUE |
 | `pma_allow_i` | in | 1 | PMA decision | high permits the request; low produces a fault without a bus request |
 | `pma_fault_code_i` | in | 6 | PMA access fault code | nonzero code is returned when PMA denies the operation |
 | `mem_req_valid_o` / `mem_req_ready_i` | out/in | 1 | MEM-REQ request handshake | request payload remains stable until accepted |
@@ -52,13 +52,13 @@ The scalar LSU controller accepts one decoded load or store, latches its request
 The controller state machine is:
 
 ```text
-IDLE -> CHECK -> ISSUE -> WAIT_RSP -> RESP -> IDLE
-              \-> RESP on invalid size, misalignment, or PMA denial
+IDLE -> ISSUE -> WAIT_RSP -> IDLE
+          \-> WAIT_RSP with a pending fault on invalid size, misalignment, or PMA denial
 ```
 
-`CHECK` presents the latched request to the external PMA boundary. Illegal accesses do not assert `mem_req_valid_o`. `ISSUE` holds the MEM-REQ payload stable until `mem_req_ready_i`. `WAIT_RSP` does not assert `mem_rsp_ready_o` for a mismatched response, so the response remains pending until the matching ID arrives. `RESP` holds the final data or fault until `lsu_resp_ready_i`.
+`ISSUE` presents the latched request to the external PMA boundary and holds the MEM-REQ payload stable until `mem_req_ready_i`. Illegal accesses do not assert `mem_req_valid_o`. `WAIT_RSP` does not assert `mem_rsp_ready_o` for a mismatched response, so the response remains pending until the matching ID arrives. A registered response-pending bit holds the final data or fault until `lsu_resp_ready_i`.
 
-This is a blocking reference controller with one outstanding operation. The separate states preserve the independent PMA, MEM-REQ, MEM-RSP, and core-response handshakes required by the MEM-stage boundary in SPEC section 7.4; pipelined overlap belongs to the owning R-02 memory-stage implementation.
+This is a blocking reference controller with one outstanding operation. It removes the redundant check cycle while preserving the independent PMA, MEM-REQ, MEM-RSP, and core-response handshakes required by the MEM-stage boundary in SPEC section 7.4; pipelined overlap belongs to the owning R-02 memory-stage implementation.
 
 ## Exceptions and errors
 

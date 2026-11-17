@@ -249,15 +249,15 @@ endfunction
            64'h0000000080000001, 64'hffffffff80000001);
 
     issue(64'd3, 64'hFFFF_FFFF_FF00_00AA, 3'd0, 1'b1, 1'b0, 4'h2);
-    expect_request(64'd3, 64'h0000_0000_AA00_0000, 8'b00001000, 1'b1, 3'd0, 4'h2);
+    expect_request(64'd3, 64'hAAAA_AAAA_AAAA_AAAA, 8'b00001000, 1'b1, 3'd0, 4'h2);
     complete_response('0, 1'b0, '0, 4'h2, '0, 1'b0, 6'd0);
 
     issue(64'd2, 64'hFFFF_0000_0000_BEEF, 3'd1, 1'b1, 1'b0, 4'h3);
-    expect_request(64'd2, 64'h0000_0000_BEEF_0000, 8'b00001100, 1'b1, 3'd1, 4'h3);
+    expect_request(64'd2, 64'hBEEF_BEEF_BEEF_BEEF, 8'b00001100, 1'b1, 3'd1, 4'h3);
     complete_response('0, 1'b0, '0, 4'h3, '0, 1'b0, 6'd0);
 
     issue(64'd0, 64'hFFFF_FFFF_DEAD_BEEF, 3'd2, 1'b1, 1'b0, 4'ha);
-    expect_request(64'd0, 64'h0000_0000_DEAD_BEEF, 8'b00001111, 1'b1, 3'd2, 4'ha);
+    expect_request(64'd0, 64'hDEAD_BEEF_DEAD_BEEF, 8'b00001111, 1'b1, 3'd2, 4'ha);
     complete_response('0, 1'b0, '0, 4'ha, '0, 1'b0, 6'd0);
 
     issue(64'd0, 64'hFFFF_FFFF_DEAD_BEEF, 3'd3, 1'b1, 1'b0, 4'hb);

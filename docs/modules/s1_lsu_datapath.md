@@ -26,7 +26,7 @@ The combinational LSU datapath converts a decoded scalar memory operation into b
 | `size_valid_o` | out | 1 | supported-size result | low for unsupported sizes |
 | `alignment_ok_o` | out | 1 | natural-alignment result | byte always valid; larger transfers require natural alignment |
 | `mem_be_o` | out | `XLEN/8` | store byte enables | transfer mask shifted by address lane offset |
-| `mem_wdata_o` | out | `XLEN` | lane-aligned store data | upper bits outside the transfer width are zero before shifting, except SD |
+| `mem_wdata_o` | out | `XLEN` | replicated store data | selected byte lanes are chosen by `mem_be_o` |
 | `load_data_o` | out | `XLEN` | extended load result | valid combinationally from `response_data_i` |
 
 **Latency:** zero cycles; purely combinational.
@@ -48,7 +48,7 @@ Natural alignment requirements are:
 - word: `addr_i[1:0] == 0`
 - doubleword: `addr_i[2:0] == 0`
 
-Store values are masked to 8, 16, 32, or 64 bits before lane shifting. This prevents upper register bits from leaking into `mem_wdata_o` for SB, SH, and SW. The controller and downstream memory must still honor `mem_be_o`.
+Store values are replicated across the XLEN-wide beat at 8, 16, 32, or 64 bits. The controller and downstream memory select the active lanes with `mem_be_o`; this avoids a variable-width barrel shift in the store-data path.
 
 Loads select the requested bytes after shifting the response by the address offset. LB/LH/LW sign-extend when `load_unsigned_i` is low; LBU/LHU/LWU zero-extend. LD returns the selected XLEN-wide value.
 
@@ -61,7 +61,7 @@ The datapath does not raise architectural exceptions. It reports `size_valid_o` 
 | Layer | Status | Where |
 |---|---|---|
 | Lint | clean | direct Verilator lint and ModelSim compile |
-| Unit test | 172 checks | `verif/unit/tb_s1_lsu_controller.sv` |
+| Unit test | 177 checks | `verif/unit/tb_s1_lsu_controller.sv` |
 | Co-simulation | not applicable yet | |
 | Formal | not yet | |
 

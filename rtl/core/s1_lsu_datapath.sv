@@ -31,7 +31,7 @@ module s1_lsu_datapath
 
   logic [BYTE_LANES-1:0] transfer_mask;
   logic [XLEN-1:0]       shifted_response;
-  logic [XLEN-1:0]       shifted_store;
+  logic [XLEN-1:0]       replicated_store;
 
   always_comb begin
     size_valid_o = 1'b1;
@@ -63,16 +63,15 @@ module s1_lsu_datapath
     endcase
 
     mem_be_o = transfer_mask << addr_i[2:0];
-    shifted_store = '0;
+    replicated_store = '0;
     case (size_i)
-      3'd0: shifted_store[7:0]   = store_data_i[7:0];
-      3'd1: shifted_store[15:0]  = store_data_i[15:0];
-      3'd2: shifted_store[31:0]  = store_data_i[31:0];
-      3'd3: shifted_store        = store_data_i;
-      default: shifted_store     = '0;
+      3'b000: replicated_store = {8{store_data_i[7:0]}};
+      3'b001: replicated_store = {4{store_data_i[15:0]}};
+      3'b010: replicated_store = {2{store_data_i[31:0]}};
+      3'b011: replicated_store = store_data_i;
+      default: replicated_store = '0;
     endcase
-    shifted_store = shifted_store << (addr_i[2:0] * 8);
-    mem_wdata_o = shifted_store;
+    mem_wdata_o = replicated_store;
 
     shifted_response = response_data_i >> (addr_i[2:0] * 8);
     load_data_o = '0;

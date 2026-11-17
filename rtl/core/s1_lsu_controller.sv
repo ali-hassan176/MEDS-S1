@@ -43,7 +43,7 @@ module s1_lsu_controller
 );
 
   typedef enum logic [2:0] {
-    ST_IDLE, ST_CHECK, ST_ISSUE, ST_WAIT_RSP, ST_RESP
+    ST_IDLE, ST_ISSUE, ST_WAIT_RSP
   } state_e;
 
   state_e state_q, state_d;
@@ -56,7 +56,9 @@ module s1_lsu_controller
   logic response_fault_q;
   logic [5:0] response_fault_code_q;
   logic [XLEN-1:0] response_fault_addr_q;
+  logic response_pending_q;
   logic size_valid, alignment_ok;
+  logic access_ok;
   logic [XLEN/8-1:0] mem_be;
   logic [XLEN-1:0] mem_wdata, load_data;
 
@@ -74,29 +76,25 @@ module s1_lsu_controller
   );
 
   always_comb begin
+    access_ok = size_valid && alignment_ok && pma_allow_i;
     state_d = state_q;
     case (state_q)
-      ST_IDLE: if (lsu_valid_i) state_d = ST_CHECK;
-      ST_CHECK: begin
-        if (!size_valid || !alignment_ok || !pma_allow_i) state_d = ST_RESP;
-        else state_d = ST_ISSUE;
-      end
-      ST_ISSUE: if (mem_req_ready_i) state_d = ST_WAIT_RSP;
-      ST_WAIT_RSP: if (mem_rsp_valid_i && mem_rsp_i.id == id_q) state_d = ST_RESP;
-      ST_RESP: if (lsu_resp_ready_i) state_d = ST_IDLE;
+      ST_IDLE: if (lsu_valid_i) state_d = ST_ISSUE;
+      ST_ISSUE: if (!access_ok || mem_req_ready_i) state_d = ST_WAIT_RSP;
+      ST_WAIT_RSP: if (response_pending_q && lsu_resp_ready_i) state_d = ST_IDLE;
       default: state_d = ST_IDLE;
     endcase
   end
-
+ 
   always_comb begin
     lsu_ready_o = (state_q == ST_IDLE);
-    check_valid_o = (state_q == ST_CHECK);
+    check_valid_o = (state_q == ST_ISSUE);
     check_addr_o = addr_q;
     check_size_o = size_q;
     check_write_o = write_q;
     check_mode_o = mode_q;
 
-    mem_req_valid_o = (state_q == ST_ISSUE);
+    mem_req_valid_o = (state_q == ST_ISSUE) && access_ok;
     mem_req_o = '0;
     mem_req_o.addr = addr_q;
     mem_req_o.we = write_q;
@@ -107,9 +105,9 @@ module s1_lsu_controller
     mem_req_o.id = id_q;
 
     // Keep an unmatched response pending instead of accepting and dropping it.
-    mem_rsp_ready_o = (state_q == ST_WAIT_RSP) &&
+    mem_rsp_ready_o = (state_q == ST_WAIT_RSP) && !response_pending_q &&
                       (!mem_rsp_valid_i || mem_rsp_i.id == id_q);
-    lsu_resp_valid_o = (state_q == ST_RESP);
+    lsu_resp_valid_o = response_pending_q;
     lsu_rdata_o = response_data_q;
     lsu_fault_o = response_fault_q;
     lsu_fault_code_o = response_fault_code_q;
@@ -130,6 +128,7 @@ module s1_lsu_controller
       response_fault_q <= 1'b0;
       response_fault_code_q <= '0;
       response_fault_addr_q <= '0;
+      response_pending_q <= 1'b0;
     end else begin
       state_q <= state_d;
 
@@ -143,7 +142,7 @@ module s1_lsu_controller
         id_q <= lsu_id_i;
       end
 
-      if (state_q == ST_CHECK && state_d == ST_RESP) begin
+      if (state_q == ST_ISSUE && !access_ok) begin
         response_data_q <= '0;
         response_fault_q <= 1'b1;
         response_fault_addr_q <= addr_q;
@@ -158,18 +157,22 @@ module s1_lsu_controller
                                    (write_q ? EXC_STORE_ACCESS_FAULT :
                                               EXC_LOAD_ACCESS_FAULT);
         end
+        response_pending_q <= 1'b1;
       end
 
-      if (state_q == ST_WAIT_RSP && mem_rsp_valid_i && mem_rsp_i.id == id_q) begin
+      if (state_q == ST_WAIT_RSP && !response_pending_q &&
+          mem_rsp_valid_i && mem_rsp_i.id == id_q) begin
         response_data_q <= write_q ? '0 : load_data;
         response_fault_q <= mem_rsp_i.err;
         response_fault_code_q <= mem_rsp_i.err ?
                                  (write_q ? EXC_STORE_ACCESS_FAULT :
                                             EXC_LOAD_ACCESS_FAULT) : '0;
         response_fault_addr_q <= addr_q;
+        response_pending_q <= 1'b1;
       end
 
-      if (state_q == ST_RESP && lsu_resp_ready_i) begin
+      if (response_pending_q && lsu_resp_ready_i) begin
+        response_pending_q <= 1'b0;
         response_fault_q <= 1'b0;
         response_fault_code_q <= '0;
       end
