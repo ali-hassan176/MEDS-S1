@@ -62,9 +62,11 @@ module s1_lsu_datapath
       end
     endcase
 
+    // Byte enables select the active lanes, so store data need not be shifted into position.
     mem_be_o = transfer_mask << addr_i[2:0];
     replicated_store = '0;
     case (size_i)
+      // Replication replaces the variable-width store-data barrel shifter.
       3'b000: replicated_store = {8{store_data_i[7:0]}};
       3'b001: replicated_store = {4{store_data_i[15:0]}};
       3'b010: replicated_store = {2{store_data_i[31:0]}};
@@ -73,18 +75,22 @@ module s1_lsu_datapath
     endcase
     mem_wdata_o = replicated_store;
 
+    // Unlike stores, loads must move the addressed lane to bit zero before extension.
     shifted_response = response_data_i >> (addr_i[2:0] * 8);
     load_data_o = '0;
     case (size_i)
       3'd0: begin
+        // Extension is selected by the instruction so LB and LBU share the datapath.
         if (load_unsigned_i) load_data_o = {{(XLEN-8){1'b0}}, shifted_response[7:0]};
         else                 load_data_o = {{(XLEN-8){shifted_response[7]}}, shifted_response[7:0]};
       end
       3'd1: begin
+        // Preserve the halfword sign only for signed loads.
         if (load_unsigned_i) load_data_o = {{(XLEN-16){1'b0}}, shifted_response[15:0]};
         else                 load_data_o = {{(XLEN-16){shifted_response[15]}}, shifted_response[15:0]};
       end
       3'd2: begin
+        // Preserve the word sign only for signed loads.
         if (load_unsigned_i) load_data_o = {{(XLEN-32){1'b0}}, shifted_response[31:0]};
         else                 load_data_o = {{(XLEN-32){shifted_response[31]}}, shifted_response[31:0]};
       end
